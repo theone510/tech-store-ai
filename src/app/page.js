@@ -48,6 +48,30 @@ const MOCK_PRODUCTS = [
         category: "لابتوبات",
         image: "https://images.unsplash.com/photo-1603302576837-37561b2e2302?q=80&w=800&auto=format&fit=crop",
         features: ["معالج رايزن 9", "كرت شاشة RTX 4060", "شاشة 165 هرتز"]
+    },
+    {
+        id: 7,
+        name: "ساعة ابل الجيل التاسع | Apple Watch Series 9",
+        priceIQD: 650000,
+        category: "ساعات ذكية",
+        image: "https://images.unsplash.com/photo-1434493789847-2f02bbf18116?q=80&w=800&auto=format&fit=crop",
+        features: ["شاشة ريتينا مضيئة", "تتبع صحة متقدم", "مقاومة للماء"]
+    },
+    {
+        id: 8,
+        name: "ايباد برو M4 - 11 انش | iPad Pro M4",
+        priceIQD: 1600000,
+        category: "اجهزة لوحية",
+        image: "https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?q=80&w=800&auto=format&fit=crop",
+        features: ["شاشة OLED", "معالج M4 الخارق", "دعم قلم ابل برو"]
+    },
+    {
+        id: 9,
+        name: "بلاي ستيشن 5 سليم | PlayStation 5 Slim",
+        priceIQD: 900000,
+        category: "العاب",
+        image: "https://images.unsplash.com/photo-1606813907291-d86efa9b94db?q=80&w=800&auto=format&fit=crop",
+        features: ["سعة 1 تيرابايت", "يد تحكم دوال سينس", "دعم 4K بـ 120 إطار"]
     }
 ];
 

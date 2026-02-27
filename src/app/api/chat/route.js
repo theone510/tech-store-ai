@@ -46,6 +46,27 @@ const MOCK_PRODUCTS = [
         priceIQD: 2150000,
         category: "لابتوبات",
         features: ["معالج رايزن 9", "كرت شاشة RTX 4060", "شاشة 165 هرتز"]
+    },
+    {
+        id: 7,
+        name: "ساعة ابل الجيل التاسع | Apple Watch Series 9",
+        priceIQD: 650000,
+        category: "ساعات ذكية",
+        features: ["شاشة ريتينا مضيئة", "تتبع صحة متقدم", "مقاومة للماء"]
+    },
+    {
+        id: 8,
+        name: "ايباد برو M4 - 11 انش | iPad Pro M4",
+        priceIQD: 1600000,
+        category: "اجهزة لوحية",
+        features: ["شاشة OLED", "معالج M4 الخارق", "دعم قلم ابل برو"]
+    },
+    {
+        id: 9,
+        name: "بلاي ستيشن 5 سليم | PlayStation 5 Slim",
+        priceIQD: 900000,
+        category: "العاب",
+        features: ["سعة 1 تيرابايت", "يد تحكم دوال سينس", "دعم 4K بـ 120 إطار"]
     }
 ];
 
