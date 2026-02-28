@@ -164,8 +164,8 @@ ${storeContext}
                         date: new Date().toISOString()
                     };
 
-                    saveOrder(newOrder);
-                    console.log(`[DATABASE SAVED] Order ${orderId} saved for ${user.name}`);
+                    await saveOrder(newOrder);
+                    console.log(`[FIRESTORE SAVED] Order ${orderId} saved for ${user.name}`);
                 }
 
                 // Tell Gemini the function succeeded
