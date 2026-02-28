@@ -17,7 +17,7 @@ export async function POST(req) {
                 success: true,
                 isAdmin: true,
                 token,
-                user: { name: "المدير", phone, address: "لوحة التحكم" }
+                user: { name: "المدير", phone: process.env.ADMIN_PHONE || phone, address: "لوحة التحكم" }
             });
         }
 
