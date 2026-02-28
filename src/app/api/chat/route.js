@@ -1,10 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
+import { saveOrder } from "@/lib/db";
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY,
 });
 
 const MOCK_PRODUCTS = [
+    // ... (products remain unchanged)
+
     {
         id: 1,
         name: "ايفون 15 برو | iPhone 15 Pro",
@@ -73,15 +76,22 @@ const MOCK_PRODUCTS = [
 export async function POST(req) {
     try {
         const body = await req.json();
-        const { messages } = body;
+        const { messages, user } = body;
 
-        // Get the latest user message
         const lastUserMessage = messages[messages.length - 1].content;
 
-        // Provide the store's knowledge base directly in the system prompt
-        // This is a simpler and more robust form of RAG for small datasets
+        let userInfoStr = "The customer is a guest. Remind them to log in if they try to place an order.";
+        if (user) {
+            userInfoStr = `The customer is logged in. 
+            Name: ${user.name}
+            Phone: ${user.phone}
+            Address: ${user.address}
+            
+            IMPORTANT: Since they are logged in, NEVER ask for their name, phone, or address. If they want to buy something, just use the 'place_order' tool and tell them to expect delivery to their address.`;
+        }
+
         const storeContext = MOCK_PRODUCTS.map(p =>
-            `${p.name} (${p.category}) - السعر: ${p.priceIQD.toLocaleString()} دينار عراقي. المواصفات: ${p.features.join("، ")}`
+            `${p.id}: ${p.name} (${p.category}) - السعر: ${p.priceIQD.toLocaleString()} دينار عراقي.`
         ).join("\n");
 
         const systemInstruction = `
@@ -90,36 +100,94 @@ export async function POST(req) {
     
 قواعد مهمة جداً:
 1. يمكنك فقط التحدث عن المنتجات الموجودة في قائمة المنتجات أدناه.
-2. إذا سأل الزبون عن منتج غير موجود في القائمة، اعتذر بلطف وأخبره أن المنتج غير متوفر حالياً. لا تخترع أسعاراً أو منتجات من مخيلتك.
+2. إذا سأل الزبون عن منتج غير موجود، اعتذر بلطف.
 3. جميع الأسعار بالدينار العراقي (IQD).
-4. اجعل إجاباتك قصيرة ومختصرة لتسهيل قراءتها على الهاتف.
+
+معلومات الزبون الحالي:
+${userInfoStr}
 
 قائمة المنتجات المتوفرة:
 ${storeContext}
 `;
 
-        // Format messages for Gemini API
-        // Gemini expects { role: "user" | "model", parts: [{ text: "..." }] }
-        // We receive from the client { role: "user" | "assistant", content: "..." }
         const geminiHistory = messages.map(msg => ({
             role: msg.role === 'user' ? 'user' : 'model',
             parts: [{ text: msg.content }]
         }));
 
-        // Start a chat session
+        // Define the tool for Gemini
+        const placeOrderTool = {
+            name: "place_order",
+            description: "Place an order for a customer. Only call this if the user is explicitly telling you they want to buy a specific product and they are logged in.",
+            parameters: {
+                type: "OBJECT",
+                properties: {
+                    product_id: {
+                        type: "INTEGER",
+                        description: "The numeric ID of the product from the STORE INVENTORY they want to buy."
+                    }
+                },
+                required: ["product_id"]
+            }
+        };
+
         const chat = ai.chats.create({
             model: 'gemini-2.5-flash',
             config: {
                 systemInstruction,
-                temperature: 0.3, // Lower temperature to stick to the facts
+                temperature: 0.1,
+                tools: [{ functionDeclarations: [placeOrderTool] }]
             },
-            history: geminiHistory.slice(0, -1), // Everything except the latest message
+            history: geminiHistory.slice(0, -1),
         });
 
         const response = await chat.sendMessage({
             message: [{ text: lastUserMessage }]
         });
 
+        // Check if Gemini wants to call our function
+        if (response.functionCalls && response.functionCalls.length > 0) {
+            const call = response.functionCalls[0];
+            if (call.name === "place_order") {
+                const productId = call.args.product_id;
+                const product = MOCK_PRODUCTS.find(p => p.id === productId);
+
+                const orderId = `IRQ-${Math.floor(Math.random() * 10000)}`;
+
+                if (user && product) {
+                    const newOrder = {
+                        id: orderId,
+                        customerName: user.name,
+                        customerPhone: user.phone,
+                        customerAddress: user.address,
+                        productName: product.name,
+                        productPrice: product.priceIQD,
+                        status: "قيد المعالجة", // "Processing" in Arabic
+                        date: new Date().toISOString()
+                    };
+
+                    saveOrder(newOrder);
+                    console.log(`[DATABASE SAVED] Order ${orderId} saved for ${user.name}`);
+                }
+
+                // Tell Gemini the function succeeded
+                const funcResponse = await chat.sendMessage({
+                    message: [{
+                        functionResponse: {
+                            name: "place_order",
+                            response: { status: "success", order_id: orderId }
+                        }
+                    }]
+                });
+
+                return Response.json({
+                    role: "assistant",
+                    content: funcResponse.text
+                });
+            }
+        }
+
+        // Standard text response
         return Response.json({
             role: "assistant",
             content: response.text
