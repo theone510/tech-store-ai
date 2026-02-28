@@ -1,5 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { saveOrder } from "@/lib/db";
+import { db } from "@/lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
 
 const ai = new GoogleGenAI({
     apiKey: process.env.GEMINI_API_KEY,
@@ -178,17 +180,39 @@ ${storeContext}
                     }]
                 });
 
+                const assistantReply = funcResponse.text;
+                // Save conversation to Firestore
+                try {
+                    await addDoc(collection(db, "conversations"), {
+                        userName: user?.name || "زائر",
+                        userPhone: user?.phone || "غير معروف",
+                        messages: [...messages, { role: "user", content: messages[messages.length - 1]?.content }, { role: "assistant", content: assistantReply }],
+                        timestamp: new Date().toISOString()
+                    });
+                } catch (e) { console.error("Failed to save conversation:", e); }
+
                 return Response.json({
                     role: "assistant",
-                    content: funcResponse.text
+                    content: assistantReply
                 });
             }
         }
 
         // Standard text response
+        const botReply = response.text;
+        // Save conversation to Firestore
+        try {
+            await addDoc(collection(db, "conversations"), {
+                userName: user?.name || "زائر",
+                userPhone: user?.phone || "غير معروف",
+                messages: [...messages, { role: "assistant", content: botReply }],
+                timestamp: new Date().toISOString()
+            });
+        } catch (e) { console.error("Failed to save conversation:", e); }
+
         return Response.json({
             role: "assistant",
-            content: response.text
+            content: botReply
         });
 
     } catch (error) {
