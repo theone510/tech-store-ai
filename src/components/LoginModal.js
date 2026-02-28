@@ -5,10 +5,11 @@ import { useUser } from "@/context/UserContext";
 
 export default function LoginModal() {
     const { isLoginModalOpen, setIsLoginModalOpen, login, loginAsAdmin } = useUser();
-    const [mode, setMode] = useState("login"); // "login" or "register"
+    const [mode, setMode] = useState("login");
     const [loginData, setLoginData] = useState({ phone: "", password: "" });
-    const [registerData, setRegisterData] = useState({ name: "", phone: "", address: "" });
+    const [registerData, setRegisterData] = useState({ name: "", phone: "", address: "", password: "" });
     const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
     const [isLoading, setIsLoading] = useState(false);
 
     if (!isLoginModalOpen) return null;
@@ -18,46 +19,59 @@ export default function LoginModal() {
         setError("");
         setIsLoading(true);
 
-        // Check if it's the admin trying to log in
         try {
-            const res = await fetch("/api/admin/login", {
+            const res = await fetch("/api/auth/login", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ password: loginData.password }),
+                body: JSON.stringify(loginData),
             });
             const data = await res.json();
+
             if (data.success) {
-                // Admin detected!
-                loginAsAdmin(data.token);
-                login({ name: "المدير", phone: loginData.phone, address: "لوحة التحكم" });
-                setIsLoading(false);
-                return;
+                if (data.isAdmin) {
+                    loginAsAdmin(data.token);
+                }
+                login(data.user);
+            } else {
+                setError(data.error || "فشل في تسجيل الدخول");
             }
-        } catch (e) { /* not admin, continue */ }
-
-        // Regular user login — load from localStorage by phone
-        const savedUser = localStorage.getItem("iraqtech_user");
-        if (savedUser) {
-            const parsed = JSON.parse(savedUser);
-            if (parsed.phone === loginData.phone) {
-                login(parsed);
-                setIsLoading(false);
-                return;
-            }
+        } catch {
+            setError("حدث خطأ في الاتصال");
+        } finally {
+            setIsLoading(false);
         }
-
-        setError("الرجاء تسجيل حساب جديد أولاً، أو تحقق من الرقم");
-        setIsLoading(false);
     };
 
-    const handleRegister = (e) => {
+    const handleRegister = async (e) => {
         e.preventDefault();
-        login(registerData);
+        setError("");
+        setSuccess("");
+        setIsLoading(true);
+
+        try {
+            const res = await fetch("/api/auth/register", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(registerData),
+            });
+            const data = await res.json();
+
+            if (data.success) {
+                login(data.user);
+            } else {
+                setError(data.error || "فشل في إنشاء الحساب");
+            }
+        } catch {
+            setError("حدث خطأ في الاتصال");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const resetAndSwitch = (newMode) => {
         setMode(newMode);
         setError("");
+        setSuccess("");
     };
 
     return (
@@ -103,15 +117,25 @@ export default function LoginModal() {
 
                 <div className="h-px bg-gradient-to-r from-transparent via-neutral-700 to-transparent mb-6"></div>
 
+                {/* Error/Success Messages */}
+                {error && (
+                    <div className="mb-4 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm text-center">
+                        {error}
+                    </div>
+                )}
+                {success && (
+                    <div className="mb-4 px-4 py-3 rounded-xl bg-green-500/10 border border-green-500/20 text-green-400 text-sm text-center">
+                        {success}
+                    </div>
+                )}
+
                 {/* ===== LOGIN FORM ===== */}
                 {mode === "login" && (
                     <form onSubmit={handleLogin} className="space-y-5">
                         <div>
                             <label className="block text-sm font-medium text-neutral-300 mb-2">رقم الهاتف</label>
                             <input
-                                required
-                                type="tel"
-                                placeholder="07XX XXX XXXX"
+                                required type="tel" placeholder="07XX XXX XXXX"
                                 className="w-full bg-neutral-800/70 border border-neutral-700/50 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-neutral-800 transition-all text-left placeholder:text-neutral-500"
                                 dir="ltr"
                                 value={loginData.phone}
@@ -119,22 +143,18 @@ export default function LoginModal() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-neutral-300 mb-2">كلمة المرور <span className="text-neutral-500 text-xs">(للمدير فقط)</span></label>
+                            <label className="block text-sm font-medium text-neutral-300 mb-2">كلمة المرور</label>
                             <input
-                                type="password"
-                                placeholder="اتركه فارغاً إذا لست المدير"
-                                className="w-full bg-neutral-800/70 border border-neutral-700/50 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-neutral-800 transition-all text-left placeholder:text-neutral-500 placeholder:text-right"
+                                required type="password" placeholder="••••••••"
+                                className="w-full bg-neutral-800/70 border border-neutral-700/50 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-neutral-800 transition-all text-left placeholder:text-neutral-500"
                                 dir="ltr"
                                 value={loginData.password}
                                 onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
                             />
                         </div>
 
-                        {error && <p className="text-red-400 text-sm text-center">{error}</p>}
-
                         <button
-                            type="submit"
-                            disabled={isLoading}
+                            type="submit" disabled={isLoading}
                             className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-bold text-lg hover:shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:scale-[1.02] transition-all active:scale-[0.98] disabled:opacity-50"
                         >
                             {isLoading ? "جاري التحقق..." : "دخول 🔐"}
@@ -142,22 +162,18 @@ export default function LoginModal() {
 
                         <p className="text-center text-sm text-neutral-500">
                             ما عندك حساب؟{" "}
-                            <button type="button" onClick={() => resetAndSwitch("register")} className="text-blue-400 hover:text-blue-300">
-                                سجل هنا
-                            </button>
+                            <button type="button" onClick={() => resetAndSwitch("register")} className="text-blue-400 hover:text-blue-300">سجل هنا</button>
                         </p>
                     </form>
                 )}
 
                 {/* ===== REGISTER FORM ===== */}
                 {mode === "register" && (
-                    <form onSubmit={handleRegister} className="space-y-5">
+                    <form onSubmit={handleRegister} className="space-y-4">
                         <div>
                             <label className="block text-sm font-medium text-neutral-300 mb-2">الاسم الكامل</label>
                             <input
-                                required
-                                type="text"
-                                placeholder="مثال: أحمد علي"
+                                required type="text" placeholder="مثال: أحمد علي"
                                 className="w-full bg-neutral-800/70 border border-neutral-700/50 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-neutral-800 transition-all placeholder:text-neutral-500"
                                 value={registerData.name}
                                 onChange={(e) => setRegisterData({ ...registerData, name: e.target.value })}
@@ -166,9 +182,7 @@ export default function LoginModal() {
                         <div>
                             <label className="block text-sm font-medium text-neutral-300 mb-2">رقم الهاتف</label>
                             <input
-                                required
-                                type="tel"
-                                placeholder="07XX XXX XXXX"
+                                required type="tel" placeholder="07XX XXX XXXX"
                                 className="w-full bg-neutral-800/70 border border-neutral-700/50 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-neutral-800 transition-all text-left placeholder:text-neutral-500"
                                 dir="ltr"
                                 value={registerData.phone}
@@ -176,29 +190,35 @@ export default function LoginModal() {
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-neutral-300 mb-2">المحافظة والعنوان الكامل</label>
+                            <label className="block text-sm font-medium text-neutral-300 mb-2">المحافظة والعنوان</label>
                             <input
-                                required
-                                type="text"
-                                placeholder="مثال: بغداد، الكرادة، شارع 62"
+                                required type="text" placeholder="مثال: بغداد، الكرادة، شارع 62"
                                 className="w-full bg-neutral-800/70 border border-neutral-700/50 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-neutral-800 transition-all placeholder:text-neutral-500"
                                 value={registerData.address}
                                 onChange={(e) => setRegisterData({ ...registerData, address: e.target.value })}
                             />
                         </div>
+                        <div>
+                            <label className="block text-sm font-medium text-neutral-300 mb-2">كلمة المرور</label>
+                            <input
+                                required type="password" placeholder="اختر كلمة مرور قوية"
+                                className="w-full bg-neutral-800/70 border border-neutral-700/50 text-white rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:bg-neutral-800 transition-all text-left placeholder:text-neutral-500 placeholder:text-right"
+                                dir="ltr"
+                                value={registerData.password}
+                                onChange={(e) => setRegisterData({ ...registerData, password: e.target.value })}
+                            />
+                        </div>
 
                         <button
-                            type="submit"
-                            className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-bold text-lg hover:shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:scale-[1.02] transition-all active:scale-[0.98] mt-2"
+                            type="submit" disabled={isLoading}
+                            className="w-full py-4 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white font-bold text-lg hover:shadow-[0_0_30px_rgba(37,99,235,0.4)] hover:scale-[1.02] transition-all active:scale-[0.98] disabled:opacity-50 mt-1"
                         >
-                            إنشاء حساب ✨
+                            {isLoading ? "جاري التسجيل..." : "إنشاء حساب ✨"}
                         </button>
 
                         <p className="text-center text-sm text-neutral-500">
                             عندك حساب؟{" "}
-                            <button type="button" onClick={() => resetAndSwitch("login")} className="text-blue-400 hover:text-blue-300">
-                                سجل دخول
-                            </button>
+                            <button type="button" onClick={() => resetAndSwitch("login")} className="text-blue-400 hover:text-blue-300">سجل دخول</button>
                         </p>
                     </form>
                 )}
