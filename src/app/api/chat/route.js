@@ -6,8 +6,6 @@ const ai = new GoogleGenAI({
 });
 
 const MOCK_PRODUCTS = [
-    // ... (products remain unchanged)
-
     {
         id: 1,
         name: "ايفون 15 برو | iPhone 15 Pro",
